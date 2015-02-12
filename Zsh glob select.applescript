@@ -1,6 +1,12 @@
 (*
 	lselect 1.2 by Jim DeVona
 	http://anoved.net/lselect.html
+
+	Forked by Ian Haigh (https://github.com/monsieuroeuf)
+	2015-02-12: 
+		- it wasn't handling paths with spaces in them
+		- saved the search pattern using os x "defaults"
+
 	1.0: 1 November 2006
 	1.1: 18 December 2006 (somewhat improved Column view behavior)
 	1.2: 27 August 2010 (use Zsh ; by OrangeRaven)
@@ -52,7 +58,15 @@ tell application "Finder"
 		whereas "Add Matches" leaves it intact. Clearing the selection is not done
 		in Column view if the displayed folder is the only thing selected.
 	*)
-	set dr to display dialog "Glob pattern:" default answer "" buttons {"Cancel", "Add Matches", "Select Matches"} default button 3 cancel button 1 with title pwd giving up after 60
+	try
+		set da to do shell script "defaults read com.ianhaigh.zshglob pattern"
+	on error
+		set da to "*"
+	end try
+	
+	set dr to display dialog "Glob pattern:" default answer da buttons {"Cancel", "Add Matches", "Select Matches"} default button 3 cancel button 1 with title pwd giving up after 60
+	do shell script "defaults write com.ianhaigh.zshglob pattern \"\\\"" & text returned of dr & "\\\"\""
+	
 	if button returned of dr is equal to "" then
 		return
 	else if button returned of dr is equal to "Select Matches" then
@@ -92,7 +106,7 @@ tell application "Finder"
 		If nothing matches the query, ls will return an error; just stop.
 	*)
 	try
-		tell me to set matches to do shell script ("/usr/bin/env zsh -o extendedglob -c 'print -l " & quoted form of pwd & query & "'")
+		tell me to set matches to do shell script ("/usr/bin/env zsh -o extendedglob -c 'print -l \"" & pwd & "\"" & query & "'")
 	on error
 		return
 	end try
@@ -106,11 +120,14 @@ tell application "Finder"
 		repeat body with "set end of selectables to matchpath as POSIX file"
 	*)
 	repeat with matchpath in paragraphs of matches
+		set end of selectables to matchpath as POSIX file
+		(*
 		set posixmatch to matchpath as POSIX file
 		try
 			set fileinfo to info for posixmatch without size
 			if visible of fileinfo then set end of selectables to posixmatch
 		end try
+		*)
 	end repeat
 	
 	(*
